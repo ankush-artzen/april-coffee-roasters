@@ -50,7 +50,19 @@ function emphasizeHtmlBlock(inner: string): string {
 }
 
 function paragraphHtml(inner: string): string {
-  const marked = emphasizeHtmlBlock(inner);
+  const normalized = inner.replace(/\r\n/g, "\n");
+
+  // Blank lines inside a block would collapse in HTML — turn them into
+  // real section gaps so metafield / rich-text paragraphs stay separated.
+  if (/\n(?:\s*\n)+/.test(normalized)) {
+    return normalized
+      .split(/\n(?:\s*\n)+/)
+      .map((block) => paragraphHtml(block))
+      .join('<p class="copy-gap"></p>');
+  }
+
+  const withBreaks = normalized.replace(/\n/g, "<br>");
+  const marked = emphasizeHtmlBlock(withBreaks);
   const plain = marked
     .replace(/<[^>]+>/g, "")
     .replace(/&[a-z#0-9]+;/gi, " ")
@@ -140,7 +152,16 @@ function formatHtmlCopy(html: string): string {
   if (!safe) return "";
 
   const hasBlock = /<(p|ul|ol|h\d|div|blockquote|table)\b/i.test(safe);
-  if (!hasBlock) return paragraphHtml(safe);
+  if (!hasBlock) {
+    // Double <br> with no wrapping <p> still means a section break.
+    if (/(?:<br\s*\/?>\s*){2,}/i.test(safe)) {
+      return safe
+        .split(/(?:<br\s*\/?>\s*){2,}/i)
+        .map((part) => paragraphHtml(part.trim()))
+        .join('<p class="copy-gap"></p>');
+    }
+    return paragraphHtml(safe);
+  }
 
   safe = safe.replace(
     /<p\b[^>]*>\s*(?:<br\s*\/?>|&nbsp;|\s)*<\/p>/gi,
