@@ -49,8 +49,21 @@ function emphasizeHtmlBlock(inner: string): string {
     .join("<br>");
 }
 
+/**
+ * Recover section breaks lost when HTML paragraphs were joined into one
+ * string (e.g. "century.The farm" from "</p><p>"). A period/!/? glued to a
+ * capitalized word is treated as a new section — not a same-paragraph
+ * ". The" (space present), and not initials like "F.C.J".
+ */
+function restoreGluedSectionBreaks(text: string): string {
+  return text.replace(
+    /(?<=[a-z]{2,})([.!?])([A-Z][a-z])/g,
+    "$1\n\n$2",
+  );
+}
+
 function paragraphHtml(inner: string): string {
-  const normalized = inner.replace(/\r\n/g, "\n");
+  const normalized = restoreGluedSectionBreaks(inner.replace(/\r\n/g, "\n"));
 
   // Blank lines inside a block would collapse in HTML — turn them into
   // real section gaps so metafield / rich-text paragraphs stay separated.
